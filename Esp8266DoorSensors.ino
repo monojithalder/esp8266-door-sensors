@@ -41,6 +41,7 @@ void setup() {
   server.on("/on-buzzer",onBuzzer);
   server.on("/off-buzzer",offBuzzer);
   server.on("/logout",logout);
+  server.on("/reboot",reboot);
   server.begin();
   delay(500);
   
@@ -185,6 +186,12 @@ void offBuzzer() {
 }
 void logout() {
   login = 0;
+  server.sendHeader("Location", "/", true);
+  server.send ( 302, "text/plain", "");
+}
+
+void reboot() {
+  ESP.restart();
   server.sendHeader("Location", "/", true);
   server.send ( 302, "text/plain", "");
 }
