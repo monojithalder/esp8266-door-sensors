@@ -19,14 +19,23 @@ int receiveddata =0;
 int password_address = 20;
 int login = 0;
 int buzzer_address = 30;
+int wifi_name_address= 50;
+int wifi_password_address=100;
 void setup() {
     EEPROM.begin(512);
   //eeWriteInt(2,30);
   int i =0;
-  for(i=0;i<=10;i++) {
+  /*for(i=0;i<=10;i++) {
     eeWriteInt(i,0);
-  }
-  eeWriteInt(password_address,-1);
+  }*/
+  //eeWriteInt(password_address,-1); 
+  /*String wifi_name = "TESTINGY";
+  byte wifi_name_byte[wifi_name.length()+1];
+  wifi_name.getBytes(wifi_name_byte, wifi_name.length()+1);
+  for(i=0;i<=wifi_name.length()+1; i++) {
+    EEPROM.write(50+i,wifi_name_byte[i]);
+  }*/
+  
   pinMode(2,OUTPUT);
   digitalWrite(2,HIGH);  
   WiFi.mode(WIFI_AP);
@@ -42,6 +51,9 @@ void setup() {
   server.on("/off-buzzer",offBuzzer);
   server.on("/logout",logout);
   server.on("/reboot",reboot);
+  server.on("/wifi-settings",wifiSettings);
+  server.on("/do-wifi-settings",doWifiSettings);
+  server.on("/reset-all-memory",resetAllMemory);
   server.begin();
   delay(500);
   
@@ -60,7 +72,7 @@ void loop() {
 
 void indexPage() {
   digitalWrite(2,HIGH);
-  if(eeGetInt(password_address) == -1) {
+  if(eeGetInt(password_address) == 0) {
     server.sendHeader("Location", "change-password", true);
     server.send ( 302, "text/plain", "");
   }
@@ -73,7 +85,13 @@ void indexPage() {
     html += "<input type=\"submit\" value=\"Enter\">";
     html += "<div></form>";
     String password;
-    password =eeGetInt(password_address);
+    byte wifi_name_byte[11];
+    int i =0;
+    for(i=0;i<11;i++) {
+      wifi_name_byte[i] = EEPROM.read(50+i);
+    }
+    password = String((char *)wifi_name_byte);
+    //password =eeGetInt(password_address);
     html += "<lable>"+password+"</lable>";
     html += "</body></html>";
     server.send(200, "text/html", html); 
@@ -194,6 +212,72 @@ void reboot() {
   ESP.restart();
   server.sendHeader("Location", "/", true);
   server.send ( 302, "text/plain", "");
+}
+
+void wifiSettings() {
+  if(login == 1) {
+    String html;
+    String wifi_name,wifi_password;
+    byte wifi_name_byte[20],wifi_password_byte[20];
+    int i =0;
+    for(i=0;i<20;i++) {
+      wifi_name_byte[i] = EEPROM.read(wifi_name_address+i);
+    }
+    for(i=0;i<20;i++) {
+      wifi_password_byte[i] = EEPROM.read(wifi_password_address+i);
+    }
+    
+    wifi_name = String((char *)wifi_name_byte);
+    wifi_password = String((char *)wifi_password_byte);
+    
+    html = "<html><head><title>Door Sensors | Change Password</title></head><body>";
+    html += "<div style=\"width:100%;margin-right:auto;margin-left:auto;\">";
+    html += "<form action=\"/do-wifi-settings\" method=\"post\">";
+    html += "<lable>Wifi Name</lable>";
+    html += "<input type=\"text\" name=\"wifi_name\" value=\""+wifi_name+"\">";
+    html += "<lable>Wifi Password</lable>";
+    html += "<input type=\"password\" name=\"wifi_password\">";
+    html += "<input type=\"submit\" value=\"Save\" value=\""+wifi_password+"\">";
+    html += "<div></form>";
+    html += "</body></html>";
+    server.send(200, "text/html", html);
+  }
+  else {
+    server.sendHeader("Location", "/", true);
+    server.send ( 302, "text/plain", "");
+  }
+}
+void doWifiSettings() {
+  String wifi_name,wifi_password;
+  wifi_name = server.arg("wifi_name");
+  wifi_password = server.arg("wifi_password");
+  byte wifi_name_byte[wifi_name.length()+1];
+  byte wifi_password_byte[wifi_password.length()+1];
+  int i = 0;
+  wifi_password.getBytes(wifi_password_byte,wifi_password.length()+1);
+  wifi_name.getBytes(wifi_name_byte, wifi_name.length()+1);
+  
+  for(i=0;i<=wifi_name.length()+1; i++) {
+    EEPROM.write(wifi_name_address + i,wifi_name_byte[i]);
+  }
+  for(i=0;i<=wifi_password.length()+1; i++) {
+    EEPROM.write(wifi_password_address + i,wifi_password_byte[i]);
+  }
+  server.sendHeader("Location", "/wifi-settings", true);
+  server.send ( 302, "text/plain", "");  
+}
+
+void resetAllMemory() {
+  int i=0;
+  for(i=0; i< 512; i++) {
+    EEPROM.write(i,0);
+  }
+  String html;
+  html = "<html><head><title>Door Sensors | Reset Memory</title></head><body>";
+  html += "<div style=\"width:100%;margin-right:auto;margin-left:auto;\">";
+  html += "<h1>Reset All memory done</h1>";
+  html += "</div></body></html>";
+  server.send(200, "text/html", html);
 }
 
 void eeWriteInt(int pos, int val) {
